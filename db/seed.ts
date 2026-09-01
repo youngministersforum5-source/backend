@@ -7,14 +7,6 @@ import { sendInitialAdminPassword } from "../src/services/email.service";
 const emailSchema = z.string().trim().toLowerCase().email();
 
 /**
- * Idempotent admin seed.
- *
- * For each email in ADMIN_EMAILS:
- *  - If the admin already exists: do nothing. Never regenerate or resend
- *    a password for an existing account.
- *  - If the admin does not exist: create it with a freshly generated,
- *    cryptographically secure password, store only its Argon2id hash, and
- *    email the plaintext password to the administrator exactly once.
  */
 async function seed(): Promise<void> {
   const connectionString = process.env.DATABASE_URL;
@@ -73,10 +65,7 @@ async function seed(): Promise<void> {
         await sendInitialAdminPassword(email, temporaryPassword);
         console.log(`✔ Sent initial password email to: ${email}`);
       } catch (err) {
-        // The admin account exists even if the email failed to send. Do NOT
-        // print the password to the console/logs in production; surface a
-        // clear operator warning instead so they can resolve delivery and
-        // use a manual password reset flow if one exists.
+     
         console.error(
           `⚠️  Admin account created for ${email}, but the initial password email failed to send.`,
           err instanceof Error ? err.message : err

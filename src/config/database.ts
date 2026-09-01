@@ -5,15 +5,6 @@ import { logger } from "../utils/logger";
 /**
  * Direct-to-Postgres access layer (no ORM).
  *
- * A single `pg.Pool` is created against Neon's POOLED connection string
- * (`DATABASE_URL`). Neon requires TLS; `sslmode=require` in the connection
- * string plus `ssl: { rejectUnauthorized: true }` here ensure certificate
- * verification stays enabled. Do not disable it.
- *
- * In development, `tsx watch` reloads modules on file changes, which would
- * otherwise create a new Pool (and a fresh batch of connections) on every
- * reload. We cache the instance on `globalThis` to avoid exhausting Neon's
- * connection limit locally.
  */
 declare global {
   // eslint-disable-next-line no-var

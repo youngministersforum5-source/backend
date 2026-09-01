@@ -17,8 +17,7 @@ export function createApp(): Express {
 
   app.use(helmet());
 
-  // Allow both the apex domain and the www subdomain as valid origins.
-  // env.FRONTEND_URL can be a single URL or a comma-separated list of URLs.
+
   const allowedOrigins = env.FRONTEND_URL.split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
@@ -26,8 +25,7 @@ export function createApp(): Express {
   app.use(
     cors({
       origin: (origin, callback) => {
-        // Requests with no Origin header (curl, server-to-server, health
-        // checks, mobile apps) are allowed through.
+    
         if (!origin || allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {

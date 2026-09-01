@@ -1,3 +1,4 @@
+// auth.controller.ts
 import { Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import { SESSION_COOKIE_NAME } from "../utils/session";
@@ -12,13 +13,38 @@ import { LoginInput, VerifyOtpInput, ResendOtpInput } from "../schemas/auth.sche
 
 const GENERIC_AUTH_ERROR = "Invalid email or password.";
 
+/**
+ * Cookie options for setting the session cookie.
+ *
+ * `sameSite: "none"` is required because the frontend (youngministersforum.org)
+ * and backend (onrender.com) are different sites — this is a cross-site
+ * request from the browser's perspective, and `Lax`/`Strict` cookies are
+ * never sent on cross-site XHR/fetch calls, only on top-level navigations.
+ *
+ * `secure: true` is mandatory whenever `sameSite: "none"` is used — browsers
+ * silently drop the Set-Cookie header otherwise. Render always serves over
+ * HTTPS, so this is safe to hardcode rather than tie to `isProduction`.
+ */
 function sessionCookieOptions() {
   return {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: "lax" as const,
+    secure: true,
+    sameSite: "none" as const,
     path: "/",
     maxAge: env.SESSION_EXPIRES_HOURS * 60 * 60 * 1000,
+  };
+}
+
+/**
+ * Options used to clear the session cookie. Must match the `path`,
+ * `secure`, and `sameSite` attributes it was originally set with, or the
+ * browser won't recognize it as the same cookie to remove.
+ */
+function clearSessionCookieOptions() {
+  return {
+    path: "/",
+    secure: true,
+    sameSite: "none" as const,
   };
 }
 
@@ -78,7 +104,7 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
     await invalidateSession(token);
   }
 
-  res.clearCookie(SESSION_COOKIE_NAME, { path: "/" });
+  res.clearCookie(SESSION_COOKIE_NAME, clearSessionCookieOptions());
   res.status(200).json({ success: true, message: "Logged out successfully." });
 });
 
