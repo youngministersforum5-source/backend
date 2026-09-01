@@ -1,4 +1,4 @@
-import express, { Express, Request, Response } from "express";
+import express, { Express, NextFunction, Request, Response } from "express";
 import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -12,15 +12,29 @@ import { errorHandler, notFoundHandler } from "./middleware/error.middleware";
 export function createApp(): Express {
   const app = express();
 
-  // Trust the first proxy hop (needed for correct client IPs behind
-  // Railway/Render/Fly.io/etc. reverse proxies, which rate limiting relies on).
+ 
   app.set("trust proxy", 1);
 
   app.use(helmet());
 
+  // Allow both the apex domain and the www subdomain as valid origins.
+  // env.FRONTEND_URL can be a single URL or a comma-separated list of URLs.
+  const allowedOrigins = env.FRONTEND_URL.split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   app.use(
     cors({
-      origin: env.FRONTEND_URL,
+      origin: (origin, callback) => {
+        // Requests with no Origin header (curl, server-to-server, health
+        // checks, mobile apps) are allowed through.
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          logger.warn({ origin }, "Blocked request from disallowed origin");
+          callback(new Error("Not allowed by CORS"));
+        }
+      },
       credentials: true,
       methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],
@@ -59,6 +73,17 @@ export function createApp(): Express {
   app.use("/api/v1", apiV1Routes);
 
   app.use(notFoundHandler);
+
+  // Give CORS rejection errors a clean 403 instead of falling through to a
+  // generic 500 in errorHandler.
+  app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
+    if (err.message === "Not allowed by CORS") {
+      res.status(403).json({ success: false, message: "Origin not allowed" });
+      return;
+    }
+    next(err);
+  });
+
   app.use(errorHandler);
 
   return app;
